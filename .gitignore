@@ -1,0 +1,42 @@
+# Entornos virtuales
+venv/
+.venv/
+.env
+
+# Archivos de entorno / configuración sensible
+*.env
+*.env.local
+
+# Archivos de compilación / cache de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Archivos de logs
+*.log
+logs/
+*.pid
+
+# Archivos temporales de editores
+*.swp
+*.swo
+*.swn
+*.sublime-workspace
+*.sublime-project
+
+# VSCode / PyCharm / IDEs
+.vscode/
+.idea/
+
+# Archivos de migraciones (si usas Alembic y no quieres trackearlos todos)
+migrations/versions/*.py
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
