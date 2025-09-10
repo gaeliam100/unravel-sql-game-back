@@ -1,6 +1,7 @@
 import os
 from flask import Flask, redirect
 from flask_jwt_extended import JWTManager
+from flask_cors import CORS
 from api_docs.docs_bp import docs_bp  # Esto ya funciona
 from config import Config
 from db import db
@@ -12,6 +13,30 @@ from routes.auth_routes import auth_bp
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Configuración CORS basada en el entorno
+    if os.environ.get('FLASK_ENV') == 'production':
+        # Para producción - más restrictivo
+        CORS(app, 
+             origins=["https://unravel-sql.vercel.app"],
+             methods=["GET", "POST", "PUT", "DELETE"],
+             allow_headers=["Content-Type", "Authorization"],
+             supports_credentials=True)
+    else:
+        # Para desarrollo - más permisivo
+        CORS(app, 
+             origins=[
+                 "https://unravel-sql.vercel.app",
+                 "http://localhost:3000",
+                 "http://localhost:5173", 
+                 "http://localhost:5174",
+                 "http://127.0.0.1:3000",
+                 "http://127.0.0.1:5173",
+                 "http://127.0.0.1:5174"
+             ],
+             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+             supports_credentials=True)
 
     db.init_app(app)
     
@@ -25,7 +50,6 @@ def create_app():
 
     @app.route('/')
     def index():
-        # Redirige automáticamente a Swagger
         return redirect('/api/docs/')
 
     return app
