@@ -1,7 +1,8 @@
 import os
-from flask import Flask, redirect
+from flask import Flask, redirect, request
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from datetime import datetime
 from api_docs.docs_bp import docs_bp  # Esto ya funciona
 from config import Config
 from db import db
@@ -46,11 +47,26 @@ def create_app():
     # Registrar blueprints
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(docs_bp, url_prefix="/api")  # Swagger en /api/docs/
+    
+    # Swagger solo en desarrollo
+    if os.environ.get('FLASK_ENV') != 'production':
+        app.register_blueprint(docs_bp, url_prefix="/api")  # Swagger en /api/docs/
 
     @app.route('/')
     def index():
-        return redirect('/api/docs/')
+        if os.environ.get('FLASK_ENV') == 'production':
+            return {"message": "Unravel SQL Game API", "status": "running"}
+        else:
+            return redirect('/api/docs/')
+
+    @app.route('/api/test-cors')
+    def test_cors():
+        return {
+            "message": "CORS test successful",
+            "origin": request.headers.get('Origin', 'No Origin header'),
+            "user_agent": request.headers.get('User-Agent', 'No User-Agent'),
+            "timestamp": datetime.now().isoformat()
+        }
 
     return app
 
