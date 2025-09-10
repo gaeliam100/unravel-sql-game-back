@@ -7,7 +7,12 @@ import bcrypt
 def get_all_users():
     return User.query.all()
 
+def get_user_by_uuid(user_uuid):
+    return User.query.filter_by(uuid=user_uuid).first()
+
 def create_user(data):
+    if "username" not in data:
+        raise KeyError("Falta el parámetro 'username' en los datos de entrada.")
     password_bytes = data["password"].encode("utf-8")
     hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
     new_user = User(

@@ -1,5 +1,5 @@
 from db import db
-from datetime import datetime, timezone
+from datetime import datetime
 import uuid
 
 class User(db.Model):
@@ -8,7 +8,7 @@ class User(db.Model):
     uuid = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
     username = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    createdAt = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    createdAt = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def to_dict(self):
         return {
