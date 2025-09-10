@@ -68,6 +68,17 @@ def create_app():
             "timestamp": datetime.now().isoformat()
         }
 
+    @app.route('/api/test-register', methods=['POST'])
+    def test_register():
+        origin = request.headers.get('Origin', 'No Origin header')
+        return {
+            "message": "This endpoint would create a user (test only)",
+            "origin": origin,
+            "data_received": request.get_json() if request.is_json else "No JSON data",
+            "timestamp": datetime.now().isoformat(),
+            "note": "In production, only https://unravel-sql.vercel.app can access this"
+        }
+
     return app
 
 if __name__ == "__main__":
