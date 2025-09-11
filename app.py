@@ -10,78 +10,86 @@ from db import db
 # Importar rutas
 from routes.user_routes import user_bp
 from routes.auth_routes import auth_bp
+from routes.record_routes import record_bp
+
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
     # Configuración CORS basada en el entorno
-    if os.environ.get('FLASK_ENV') == 'production':
+    if os.environ.get("FLASK_ENV") == "production":
         # Para producción - más restrictivo
-        CORS(app, 
-             origins=["https://unravel-sql.vercel.app"],
-             methods=["GET", "POST", "PUT", "DELETE"],
-             allow_headers=["Content-Type", "Authorization"],
-             supports_credentials=True)
+        CORS(
+            app,
+            origins=["https://unravel-sql.vercel.app"],
+            methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "Authorization"],
+            supports_credentials=True,
+        )
     else:
         # Para desarrollo - más permisivo
-        CORS(app, 
-             origins=[
-                 "https://unravel-sql.vercel.app",
-                 "http://localhost:3000",
-                 "http://localhost:5173", 
-                 "http://localhost:5174",
-                 "http://127.0.0.1:3000",
-                 "http://127.0.0.1:5173",
-                 "http://127.0.0.1:5174"
-             ],
-             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-             allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-             supports_credentials=True)
+        CORS(
+            app,
+            origins=[
+                "https://unravel-sql.vercel.app",
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:5174",
+            ],
+            methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+            supports_credentials=True,
+        )
 
     db.init_app(app)
-    
+
     # Inicializar JWT Manager
     jwt = JWTManager(app)
 
     # Registrar blueprints
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    
+    app.register_blueprint(record_bp, url_prefix="/api/record")
+
     # Swagger solo en desarrollo
-    if os.environ.get('FLASK_ENV') != 'production':
+    if os.environ.get("FLASK_ENV") != "production":
         app.register_blueprint(docs_bp, url_prefix="/api")  # Swagger en /api/docs/
 
-    @app.route('/')
+    @app.route("/")
     def index():
-        if os.environ.get('FLASK_ENV') == 'production':
+        if os.environ.get("FLASK_ENV") == "production":
             return {"message": "Unravel SQL Game API", "status": "running"}
         else:
-            return redirect('/api/docs/')
+            return redirect("/api/docs/")
 
-    @app.route('/api/test-cors')
+    @app.route("/api/test-cors")
     def test_cors():
         return {
             "message": "CORS test successful",
-            "origin": request.headers.get('Origin', 'No Origin header'),
-            "user_agent": request.headers.get('User-Agent', 'No User-Agent'),
-            "timestamp": datetime.now().isoformat()
+            "origin": request.headers.get("Origin", "No Origin header"),
+            "user_agent": request.headers.get("User-Agent", "No User-Agent"),
+            "timestamp": datetime.now().isoformat(),
         }
 
-    @app.route('/api/test-register', methods=['POST'])
+    @app.route("/api/test-register", methods=["POST"])
     def test_register():
-        origin = request.headers.get('Origin', 'No Origin header')
+        origin = request.headers.get("Origin", "No Origin header")
         return {
             "message": "This endpoint would create a user (test only)",
             "origin": origin,
             "data_received": request.get_json() if request.is_json else "No JSON data",
             "timestamp": datetime.now().isoformat(),
-            "note": "In production, only https://unravel-sql.vercel.app can access this"
+            "note": "In production, only https://unravel-sql.vercel.app can access this",
         }
 
     return app
 
+
 if __name__ == "__main__":
     app = create_app()
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
