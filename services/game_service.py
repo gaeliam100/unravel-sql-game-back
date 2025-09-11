@@ -4,9 +4,15 @@ from typing import Any, Dict, List, Tuple
 from db_game import db_game
 from sqlalchemy import text
 
-@app.route('/api/validate_str', methods=['POST'])
-def evaluate_string():
-    lstr = request.body.get('query')
+
+def evaluateString(lstr: str, decimal: float):
+
+    if(decimal in [1.1, 1.2, 1.3, 2.1]):
+        return evaluate_stringQ(lstr);
+    else:
+        return validate_sql_query(lstr, decimal);
+
+def evaluate_stringQ(lstr: str):
     #hay tres casos ['^create database (.*);', '{^show tables from (.*);', '^use (.*);']
     patterns = [r'^create database (.*);', r'^show tables from (.*);', r'^use (.*);']
     lstr = lstr.lower()
@@ -31,11 +37,8 @@ def evaluate_string():
             "msg": "error",
             "code": 400
         }
-    
-@app.route('/api/validate_sql_query', methods=['POST'])
-def validate_sql_query():
-    sql_query = request.body.get('query')
-    decimal = request.body.get('decimal')
+
+def validate_sql_query(sql_query: str, decimal: float):
 
     res = db_game.session.execute(text(sql_query))
     if(decimal in [3.2, 3.3, 3.4]):
