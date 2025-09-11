@@ -4,20 +4,7 @@ from db import db
 from sqlalchemy import func, desc
 
 def create_record(data):
-    """
-    Crea un nuevo record en la base de datos.
     
-    Args:
-        data (dict): Datos del record a crear. Debe contener:
-            - time: Tiempo del juego en segundos
-            - level: Nivel del juego
-            - difficulty: Dificultad del juego
-            - errorCount: Número de errores
-            - idUser: UUID del usuario
-        
-    Returns:
-        Record: El record creado
-    """
     try:
         new_record = Record(
             time=data['time'],
