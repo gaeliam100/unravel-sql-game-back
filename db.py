@@ -2,6 +2,7 @@ import psycopg2
 import psycopg2.extras
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
+import pymysql
 
 
 def get_connection():
