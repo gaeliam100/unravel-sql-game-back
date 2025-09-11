@@ -24,7 +24,12 @@ def register():
         refresh_token = create_refresh_token(identity=new_user.uuid)
 
         response = make_response(
-            jsonify({"msg": "User registered successfully", "user": new_user.to_dict()})
+            jsonify({
+                "msg": "User registered successfully", 
+                "user": new_user.to_dict(),
+                "access_token": access_token,
+                "refresh_token": refresh_token
+            })
         )
 
         # Establecer cookies HTTP-only
@@ -48,7 +53,12 @@ def login():
             return jsonify({"msg": "Invalid credentials"}), 401
 
         response = make_response(
-            jsonify({"msg": "Login successful", "user": result["user"].to_dict()})
+            jsonify({
+                "msg": "Login successful", 
+                "user": result["user"].to_dict(),
+                "access_token": result["access_token"],
+                "refresh_token": result["refresh_token"]
+            })
         )
 
         # Establecer cookies HTTP-only
@@ -62,8 +72,15 @@ def login():
 
 
 @auth_bp.route("/logout", methods=["POST"])
-@jwt_required()
 def logout():
+    response = make_response(jsonify({"msg": "Logout successful"}))
+    unset_jwt_cookies(response)
+    return response, 200
+
+
+@auth_bp.route("/logout-token", methods=["POST"])
+@jwt_required()
+def logout_with_token():
     response = make_response(jsonify({"msg": "Logout successful"}))
     unset_jwt_cookies(response)
     return response, 200
@@ -75,6 +92,9 @@ def refresh():
     current_user = get_jwt_identity()
     new_token = create_access_token(identity=current_user)
 
-    response = make_response(jsonify({"msg": "Token refreshed"}))
+    response = make_response(jsonify({
+        "msg": "Token refreshed",
+        "access_token": new_token
+    }))
     set_access_cookies(response, new_token)
     return response, 200
