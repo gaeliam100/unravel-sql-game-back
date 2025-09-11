@@ -18,3 +18,8 @@ class Config:
     JWT_ACCESS_COOKIE_NAME = 'access_token_cookie'
     JWT_REFRESH_COOKIE_NAME = 'refresh_token_cookie'
     DATABASE_URL = os.environ.get('DATABASE_URL')
+    MYSQL_HOST = os.environ.get('MYSQL_HOST', '34.51.60.159')
+    MYSQL_USER = os.environ.get('MYSQL_USER', 'dictamigos_dev')
+    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'Tbcytdg1bb#')
+    MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE', 'unravel_sql_game_db')
+

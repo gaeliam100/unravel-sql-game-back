@@ -6,6 +6,8 @@ from datetime import datetime
 from api_docs.docs_bp import docs_bp  # Esto ya funciona
 from config import Config
 from db import db
+from routes.game_routes import bp_validate
+
 
 # Importar rutas
 from routes.user_routes import user_bp
@@ -16,6 +18,8 @@ from routes.record_routes import record_bp
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    app.register_blueprint(bp_validate, url_prefix="/api")
+
 
     # Configuración CORS basada en el entorno
     if os.environ.get("FLASK_ENV") == "production":
