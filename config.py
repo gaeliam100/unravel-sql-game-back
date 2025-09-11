@@ -21,5 +21,5 @@ class Config:
     MYSQL_HOST = os.environ.get('MYSQL_HOST', '34.51.60.159')
     MYSQL_USER = os.environ.get('MYSQL_USER', 'dictamigos_dev')
     MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'Tbcytdg1bb#')
-    MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE', 'unravel_sql_game_db')
+    MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE', 'unravel-sql-game-db')
 

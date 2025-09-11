@@ -1,11 +1,11 @@
 import os
 import re
 from typing import Any, Dict, List, Tuple
-from db_game import db_game
+from db import db
 from sqlalchemy import text
 
 
-def evaluateString(lstr: str, decimal: float):
+def execute_sql(lstr: str, decimal: float):
 
     if(decimal in [1.1, 1.2, 1.3, 2.1]):
         return evaluate_stringQ(lstr);
@@ -39,28 +39,49 @@ def evaluate_stringQ(lstr: str):
         }
 
 def validate_sql_query(sql_query: str, decimal: float):
-
-    res = db_game.session.execute(text(sql_query))
-    if(decimal in [3.2, 3.3, 3.4]):
-        if(res.count() == 1):
-            return {
-                "msg": "success",
-                "code": 200
-            }
-    elif(decimal == 4.2):
-        if(res.count() == 2):
-            return {
-                "msg": "success",
-                "code": 200
-            }
-    else:
-        if(res.count() > 0):
-            return {
-                "msg": "success",
-                "code": 200
-            }
+    try:
+        # Obtener el engine de MySQL y ejecutar la consulta
+        mysql_engine = db.get_engine(bind='mysql')
+        with mysql_engine.connect() as connection:
+            res = connection.execute(text(sql_query))
+            rows = res.fetchall()
+            row_count = len(rows)
+        
+        if(decimal in [3.2, 3.3, 3.4]):
+            if(row_count == 1):
+                return {
+                    "msg": "success",
+                    "code": 200
+                }
+            else:
+                return {
+                    "msg": "error",
+                    "code": 400
+                }
+        elif(decimal == 4.2):
+            if(row_count == 2):
+                return {
+                    "msg": "success",
+                    "code": 200
+                }
+            else:
+                return {
+                    "msg": "error",
+                    "code": 400
+                }
         else:
-            return {
-                "msg": "error",
-                "code": 400
-            }
+            if(row_count > 0):
+                return {
+                    "msg": "success",
+                    "code": 200
+                }
+            else:
+                return {
+                    "msg": "error",
+                    "code": 400
+                }
+    except Exception as e:
+        return {
+            "msg": f"SQL Error: {str(e)}",
+            "code": 400
+        }

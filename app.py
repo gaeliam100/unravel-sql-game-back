@@ -5,20 +5,19 @@ from flask_cors import CORS
 from datetime import datetime
 from api_docs.docs_bp import docs_bp  # Esto ya funciona
 from config import Config
-from db import db
-from routes.game_routes import bp_validate
+from db import db, init_app_with_binds
 
 
 # Importar rutas
 from routes.user_routes import user_bp
 from routes.auth_routes import auth_bp
 from routes.record_routes import record_bp
+from routes.game_routes import game_bp
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-    app.register_blueprint(bp_validate, url_prefix="/api")
 
 
     # Configuración CORS basada en el entorno
@@ -49,7 +48,8 @@ def create_app():
             supports_credentials=True,
         )
 
-    db.init_app(app)
+    # Inicializar aplicación con múltiples binds (PostgreSQL y MySQL)
+    init_app_with_binds(app)
 
     # Inicializar JWT Manager
     jwt = JWTManager(app)
@@ -58,6 +58,7 @@ def create_app():
     app.register_blueprint(user_bp, url_prefix="/api/users")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(record_bp, url_prefix="/api/record")
+    app.register_blueprint(game_bp, url_prefix="/api/game")
 
     # Swagger solo en desarrollo
     if os.environ.get("FLASK_ENV") != "production":
