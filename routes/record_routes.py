@@ -72,25 +72,23 @@ def create_new_record():
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-@record_bp.route('/ranking/<difficulty>/<int:level>', methods=['GET'])
+@record_bp.route('/ranking/<difficulty>/<int:level>/<user_id>', methods=['GET'])
 @jwt_required()
-def get_level_ranking(difficulty, level):
+def get_level_ranking(difficulty, level, user_id):
     """
-    Obtiene el ranking de un nivel específico.
+    Obtiene el ranking de un nivel específico con un usuario específico.
     
     URL Parameters:
         difficulty (str): Dificultad del nivel (easy, medium, hard)
         level (int): Número del nivel
+        user_id (str): UUID del usuario para mostrar su posición
         
     Returns:
-        200: Ranking con top 5 y posición del usuario actual
+        200: Ranking con top 5 y posición del usuario especificado
         400: Parámetros inválidos
         404: No hay datos para este nivel
     """
     try:
-        # Obtener el usuario actual del JWT
-        current_user_uuid = get_jwt_identity()
-        
         # Validar dificultad
         valid_difficulties = ['easy', 'medium', 'hard']
         if difficulty not in valid_difficulties:
@@ -102,8 +100,8 @@ def get_level_ranking(difficulty, level):
         if level < 1:
             return jsonify({"error": "Level must be >= 1"}), 400
         
-        # Obtener el ranking
-        ranking = get_ranking_by_level(difficulty, level, current_user_uuid)
+        # Obtener el ranking con el user_id especificado
+        ranking = get_ranking_by_level(difficulty, level, user_id)
         
         if not ranking:
             return jsonify({"error": "No ranking data available for this level"}), 404

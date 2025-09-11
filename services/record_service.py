@@ -75,12 +75,13 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         # Top 5
         top_5 = []
         for i, result in enumerate(all_results[:5]):
+            is_current = str(result.uuid) == str(current_user_uuid)
             top_5.append({
                 "position": i + 1,
                 "username": result.username,
                 "time": result.best_time,
                 "errorCount": result.min_errors,
-                "isCurrentUser": result.uuid == current_user_uuid
+                "isCurrentUser": is_current
             })
         
         # Buscar la posición del usuario actual
@@ -88,7 +89,7 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         current_user_data = None
         
         for i, result in enumerate(all_results):
-            if result.uuid == current_user_uuid:
+            if str(result.uuid) == str(current_user_uuid):
                 current_user_position = i + 1
                 current_user_data = {
                     "position": current_user_position,

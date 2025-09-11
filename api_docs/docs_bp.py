@@ -295,7 +295,7 @@ class CreateRecord(Resource):
             return {"error": "Authentication required"}, 401
 
 
-@records_ns.route("/ranking/<string:difficulty>/<int:level>")
+@records_ns.route("/ranking/<string:difficulty>/<int:level>/<string:user_id>")
 class LevelRanking(Resource):
     @api.response(200, "Ranking del nivel", ranking_response)
     @api.response(400, "Parámetros inválidos", error_response)
@@ -315,19 +315,48 @@ class LevelRanking(Resource):
                 "required": True,
                 "type": "integer",
                 "minimum": 1
+            },
+            "user_id": {
+                "description": "UUID del usuario para mostrar su posición",
+                "required": True,
+                "type": "string"
             }
         }
     )
-    def get(self, difficulty, level):
-        """Obtener ranking de un nivel específico - Top 5 + posición del usuario actual"""
-        from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+    def get(self, difficulty, level, user_id):
+        """Obtener ranking de un nivel específico - Top 5 + posición del usuario especificado"""
+        from flask_jwt_extended import verify_jwt_in_request
         from services.record_service import get_ranking_by_level
 
         try:
             verify_jwt_in_request()
-            current_user_uuid = get_jwt_identity()
             
             valid_difficulties = ['easy', 'medium', 'hard']
+            if difficulty not in valid_difficulties:
+                return {"error": f"Invalid difficulty. Must be one of: {', '.join(valid_difficulties)}"}, 400
+            
+            if level < 1:
+                return {"error": "Level must be >= 1"}, 400
+            
+            ranking = get_ranking_by_level(difficulty, level, user_id)
+            
+            if not ranking:
+                return {"error": "No ranking data available for this level"}, 404
+            
+            if ranking['totalPlayers'] == 0:
+                return {
+                    "level": level,
+                    "difficulty": difficulty,
+                    "top5": [],
+                    "currentUser": None,
+                    "totalPlayers": 0,
+                    "message": "No players have completed this level yet"
+                }, 200
+            
+            return ranking, 200
+            
+        except Exception as e:
+            return {"error": "Authentication required"}, 401
             if difficulty not in valid_difficulties:
                 return {"error": f"Invalid difficulty. Must be one of: {', '.join(valid_difficulties)}"}, 400
             
