@@ -7,14 +7,14 @@ from sqlalchemy import text
 
 def execute_sql(lstr: str, decimal: float):
     
-    lfstr = lstr.lower()
-
+    lstr = lstr.lower()
+    print(lstr)
     if(decimal in [1.1, 1.2, 1.3, 2.1]):
-        return evaluate_stringQ(lstr);
+        return evaluate_stringQ(lstr, decimal);
     else:
         return validate_sql_query(lstr, decimal);
 
-def evaluate_stringQ(lstr: str):
+def evaluate_stringQ(lstr: str, decimal: float):
     #hay tres casos ['^create database (.*);', '{^show tables from (.*);', '^use (.*);']
     patterns = [r'^create database (.*);', r'^show tables from (.*);', r'^use (.*);']
 
