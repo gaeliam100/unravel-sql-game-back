@@ -18,6 +18,7 @@ def validate_str():
         if decimal is None:
             return jsonify({"msg": "Decimal parameter is required", "code": 400}), 400
             
+        lstr = lstr.lower()
         result = execute_sql(lstr, decimal)
         return jsonify(result), result.get('code', 200)
         
