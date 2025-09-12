@@ -116,34 +116,58 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         print(f"Error al obtener ranking: {str(e)}")
         return None
     
-def get_global_ranking():
+VALID_DIFFICULTIES = {"easy", "medium", "hard"}
+
+def get_global_ranking_by_difficulty(difficulty: str, user_id: str):
     """
-    Top 3 global (jugadores con mejores métricas en los 4 niveles como unidad).
-    Usa la función SQL public.global_top3() que devuelve:
-    rk, username, idUser, total_errors, total_time, desglose(jsonb)
+    Top 3 global por dificultad + fila del usuario (4ª fila), usando:
+    public.global_top_by_difficulty(p_difficulty text, p_user uuid)
+
+    Retorna:
+    {
+      "difficulty": "medium",
+      "top3": [ {rank, username, userId, totalErrors, totalTime, breakdown, isCurrentUser, ord}, ... ],
+      "currentUser": { ... } | None,
+      "count": 3
+    }
     """
     try:
-        result = db.session.execute(
-            text("SELECT * FROM public.global_top3()")
-        ).mappings().all()  
+        if difficulty not in VALID_DIFFICULTIES:
+            raise ValueError(f"Invalid difficulty. Must be one of: {', '.join(sorted(VALID_DIFFICULTIES))}")
 
-        top = []
-        for row in result:
-            top.append({
-                "rank": row["rk"],
-                "username": row["username"],
-                "userId": str(row["idUser"]),
-                "totalErrors": row["total_errors"],
-                "totalTime": row["total_time"],
-                "breakdown": row["desglose"],
-            })
+        rows = db.session.execute(
+            text("SELECT * FROM public.global_top_by_difficulty(:difficulty, :user)"),
+            {"difficulty": difficulty, "user": user_id}
+        ).mappings().all()
+
+        top3 = []
+        me = None
+
+        for r in rows:
+            item = {
+                "ord": r.get("ord"),
+                "rank": r.get("rk"),
+                "username": r.get("username"),
+                "userId": str(r.get("idUser")) if r.get("idUser") is not None else None,
+                "totalErrors": r.get("total_errors"),
+                "totalTime": r.get("total_time"),
+                "breakdown": r.get("desglose"),
+                "isCurrentUser": bool(r.get("is_current_user")),
+            }
+
+            # Las 3 primeras filas son el Top 3 (ord 1..3); la 4ª es el usuario
+            if item["ord"] == 4 or item["isCurrentUser"]:
+                me = item
+            else:
+                top3.append(item)
 
         return {
-            "top": top,
-            "count": len(top)
+            "difficulty": difficulty,
+            "top3": top3,
+            "currentUser": me,
+            "count": len(top3)
         }
 
     except Exception as e:
         db.session.rollback()
-        raise ValueError(f"Error al obtener ranking global: {str(e)}")
-    
+        raise ValueError(f"Error al obtener ranking global por dificultad: {str(e)}")
