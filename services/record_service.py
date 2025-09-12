@@ -20,7 +20,7 @@ def create_record(data):
         return new_record
     except Exception as e:
         db.session.rollback()
-        raise ValueError(f"Error al crear record: {str(e)}")
+        raise ValueError(f"Error creating record: {str(e)}")
 
 def get_ranking_by_level(difficulty, level, current_user_uuid):
     """
@@ -37,9 +37,6 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         dict: Ranking con top 5 y posición del usuario actual
     """
     try:
-        # DEBUG: Log para diagnosticar
-        print(f"DEBUG: Buscando ranking para user {current_user_uuid}, level {level}, difficulty {difficulty}")
-        
         # Subconsulta para obtener el mejor tiempo por usuario en este nivel/dificultad
         subquery = db.session.query(
             Record.idUser,
@@ -48,7 +45,7 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         ).filter(
             Record.difficulty == difficulty,
             Record.level == level,
-            Record.time > 0  # Solo records completados
+            Record.time > 0
         ).group_by(Record.idUser).subquery()
         
         # Query principal para obtener el ranking completo
@@ -60,17 +57,12 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         ).join(
             subquery, User.uuid == subquery.c.idUser
         ).order_by(
-            subquery.c.best_time.asc(),  # Ordenar por mejor tiempo (menor es mejor)
-            subquery.c.min_errors.asc()  # En caso de empate, menor errores
+            subquery.c.best_time.asc(),
+            subquery.c.min_errors.asc()
         )
         
         # Obtener todos los resultados para calcular posiciones
         all_results = ranking_query.all()
-        
-        # DEBUG: Ver todos los resultados
-        print(f"DEBUG: Total results found: {len(all_results)}")
-        for i, result in enumerate(all_results):
-            print(f"DEBUG: Position {i+1}: {result.username} (UUID: {result.uuid}) - Time: {result.best_time}")
         
         # Top 5
         top_5 = []
@@ -98,11 +90,7 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
                     "errorCount": result.min_errors,
                     "isCurrentUser": True
                 }
-                print(f"DEBUG: Current user found at position {current_user_position}")
                 break
-        
-        if not current_user_data:
-            print(f"DEBUG: Current user {current_user_uuid} not found in ranking")
         
         return {
             "level": level,
@@ -113,61 +101,96 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
         }
         
     except Exception as e:
-        print(f"Error al obtener ranking: {str(e)}")
         return None
     
 VALID_DIFFICULTIES = {"easy", "medium", "hard"}
 
 def get_global_ranking_by_difficulty(difficulty: str, user_id: str):
     """
-    Top 3 global por dificultad + fila del usuario (4ª fila), usando:
-    public.global_top_by_difficulty(p_difficulty text, p_user uuid)
+    Top 3 global por dificultad + fila del usuario.
+    Calcula el ranking global basado en la suma de tiempos y errores de todos los niveles.
 
     Retorna:
     {
       "difficulty": "medium",
-      "top3": [ {rank, username, userId, totalErrors, totalTime, breakdown, isCurrentUser, ord}, ... ],
+      "top3": [ {rank, username, userId, totalErrors, totalTime, isCurrentUser}, ... ],
       "currentUser": { ... } | None,
-      "count": 3
+      "count": <int>
     }
     """
     try:
         if difficulty not in VALID_DIFFICULTIES:
             raise ValueError(f"Invalid difficulty. Must be one of: {', '.join(sorted(VALID_DIFFICULTIES))}")
 
-        rows = db.session.execute(
-            text("SELECT * FROM public.global_top_by_difficulty(:difficulty, :user)"),
-            {"difficulty": difficulty, "user": user_id}
-        ).mappings().all()
+        # Subconsulta para obtener el mejor tiempo por usuario por nivel
+        subquery = db.session.query(
+            Record.idUser,
+            Record.level,
+            func.min(Record.time).label('best_time'),
+            func.min(Record.errorCount).label('min_errors')
+        ).filter(
+            Record.difficulty == difficulty,
+            Record.time > 0
+        ).group_by(Record.idUser, Record.level).subquery()
 
+        # Query para obtener la suma total por usuario
+        total_query = db.session.query(
+            subquery.c.idUser,
+            func.sum(subquery.c.best_time).label('total_time'),
+            func.sum(subquery.c.min_errors).label('total_errors'),
+            func.count(subquery.c.level).label('levels_completed')
+        ).group_by(subquery.c.idUser).having(
+            func.count(subquery.c.level) >= 4
+        ).subquery()
+
+        # Query principal con información del usuario
+        ranking_query = db.session.query(
+            User.uuid,
+            User.username,
+            total_query.c.total_time,
+            total_query.c.total_errors,
+            total_query.c.levels_completed
+        ).join(
+            total_query, User.uuid == total_query.c.idUser
+        ).order_by(
+            total_query.c.total_time.asc(),
+            total_query.c.total_errors.asc()
+        )
+
+        # Obtener todos los resultados
+        all_results = ranking_query.all()
+        
+        # Formatear resultados
+        formatted_results = []
+        for i, result in enumerate(all_results):
+            formatted_results.append({
+                "rank": i + 1,
+                "username": result.username,
+                "userId": str(result.uuid),
+                "totalTime": int(result.total_time),
+                "totalErrors": int(result.total_errors),
+                "levelsCompleted": int(result.levels_completed),
+                "isCurrentUser": str(result.uuid) == user_id
+            })
+
+        # Separar top 3 y usuario actual
         top3 = []
-        me = None
-
-        for r in rows:
-            item = {
-                "ord": r.get("ord"),
-                "rank": r.get("rk"),
-                "username": r.get("username"),
-                "userId": str(r.get("idUser")) if r.get("idUser") is not None else None,
-                "totalErrors": r.get("total_errors"),
-                "totalTime": r.get("total_time"),
-                "breakdown": r.get("desglose"),
-                "isCurrentUser": bool(r.get("is_current_user")),
-            }
-
-            # Las 3 primeras filas son el Top 3 (ord 1..3); la 4ª es el usuario
-            if item["ord"] == 4 or item["isCurrentUser"]:
-                me = item
-            else:
-                top3.append(item)
+        current_user = None
+        
+        for result in formatted_results:
+            if result["isCurrentUser"]:
+                current_user = result
+            
+            if result["rank"] <= 3:
+                top3.append(result)
 
         return {
             "difficulty": difficulty,
             "top3": top3,
-            "currentUser": me,
-            "count": len(top3)
+            "currentUser": current_user,
+            "count": len(all_results)
         }
 
     except Exception as e:
         db.session.rollback()
-        raise ValueError(f"Error al obtener ranking global por dificultad: {str(e)}")
+        raise ValueError(f"Error getting global ranking by difficulty: {str(e)}")

@@ -171,7 +171,8 @@ def global_ranking():
             "currentUser": current_user_formatted,
             "difficulty": difficulty,
             "level": None,          
-            "top3": top_formatted,   
+            "top5": top_formatted,   
+            "totalPlayers": data.get("count", 0)
         }), 200
 
     except Exception as e:
