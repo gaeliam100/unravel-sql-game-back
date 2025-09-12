@@ -6,6 +6,8 @@ from sqlalchemy import text
 
 
 def execute_sql(lstr: str, decimal: float):
+    
+    lfstr = lstr.lower()
 
     if(decimal in [1.1, 1.2, 1.3, 2.1]):
         return evaluate_stringQ(lstr);
@@ -15,7 +17,12 @@ def execute_sql(lstr: str, decimal: float):
 def evaluate_stringQ(lstr: str):
     #hay tres casos ['^create database (.*);', '{^show tables from (.*);', '^use (.*);']
     patterns = [r'^create database (.*);', r'^show tables from (.*);', r'^use (.*);']
-    lstr = lstr.lower()
+
+    if (decimal == 2.1 or lstr == "use nypd_db;"):
+        return {
+            "msg": "success",
+            "code": 200
+        }
 
     if(re.fullmatch(patterns[0], lstr)):#create database (.*);
         return {
