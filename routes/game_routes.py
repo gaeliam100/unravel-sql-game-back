@@ -1,16 +1,25 @@
 from flask import Blueprint, request, jsonify
 from services.game_service import execute_sql
 
-bp_validate = Blueprint("validate_sql", __name__, url_prefix="/api")
+game_bp = Blueprint("game", __name__)
 
-@bp_validate.post("/validate-sql")
-def validate_sql():
-
-    data = request.get_json(silent=True) or {}
-    query = data.get("query")
-    if not isinstance(query, str):
-        return jsonify({"error": "No hay query presente en la peticion"}), 400
-
-    status, payload = execute_sql(query)
-    return jsonify(payload), status
-
+@game_bp.route("/validate-str", methods=["POST"])
+def validate_str():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"msg": "No JSON data provided", "code": 400}), 400
+            
+        lstr = data.get('query')
+        decimal = data.get('decimal')
+        
+        if not lstr:
+            return jsonify({"msg": "Query parameter is required", "code": 400}), 400
+        if decimal is None:
+            return jsonify({"msg": "Decimal parameter is required", "code": 400}), 400
+            
+        result = execute_sql(lstr, decimal)
+        return jsonify(result), result.get('code', 200)
+        
+    except Exception as e:
+        return jsonify({"msg": f"Internal error: {str(e)}", "code": 500}), 500

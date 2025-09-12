@@ -69,9 +69,63 @@ error_response = api.model(
     },
 )
 
+record_model = api.model(
+    "Record",
+    {
+        "time": fields.Integer(required=True, description="Tiempo del juego en segundos", example=120),
+        "level": fields.Integer(required=True, description="Nivel del juego", example=1),
+        "difficulty": fields.String(required=True, description="Dificultad del juego", example="easy", enum=["easy", "medium", "hard"]),
+        "errorCount": fields.Integer(required=True, description="Número de errores", example=3),
+        "idUser": fields.String(required=True, description="UUID del usuario", example="123e4567-e89b-12d3-a456-426614174001"),
+    },
+)
+
+record_response = api.model(
+    "RecordResponse",
+    {
+        "uuid": fields.String(description="UUID del record"),
+        "time": fields.Integer(description="Tiempo del juego en segundos"),
+        "level": fields.Integer(description="Nivel del juego"),
+        "difficulty": fields.String(description="Dificultad del juego"),
+        "errorCount": fields.Integer(description="Número de errores"),
+        "createdAt": fields.DateTime(description="Fecha de creación"),
+        "idUser": fields.String(description="UUID del usuario"),
+    },
+)
+
+record_uuid_response = api.model(
+    "RecordCreateResponse",
+    {
+        "message": fields.String(description="Mensaje de confirmación", example="Record saved successfully"),
+    },
+)
+
+ranking_player = api.model(
+    "RankingPlayer", 
+    {
+        "position": fields.Integer(description="Posición en el ranking", example=1),
+        "username": fields.String(description="Nombre del usuario", example="player123"),
+        "time": fields.Integer(description="Mejor tiempo en segundos", example=120),
+        "errorCount": fields.Integer(description="Menor número de errores", example=2),
+        "isCurrentUser": fields.Boolean(description="Si es el usuario actual", example=False)
+    }
+)
+
+ranking_response = api.model(
+    "RankingResponse",
+    {
+        "level": fields.Integer(description="Nivel consultado", example=1),
+        "difficulty": fields.String(description="Dificultad consultada", example="easy"),
+        "top5": fields.List(fields.Nested(ranking_player), description="Top 5 jugadores"),
+        "currentUser": fields.Nested(ranking_player, description="Datos del usuario actual", allow_null=True),
+        "totalPlayers": fields.Integer(description="Total de jugadores que completaron este nivel", example=25)
+    }
+)
+
 # Namespace para organizar endpoints
 auth_ns = api.namespace("auth", description="Endpoints de autenticación")
 users_ns = api.namespace("users", description="Endpoints de usuario")
+records_ns = api.namespace("record", description="Endpoints de records del juego")
 
 
 @auth_ns.route("/login")
@@ -184,6 +238,150 @@ class CurrentUser(Resource):
             return user.to_dict(), 200
         except Exception as e:
             return {"msg": "Authentication required"}, 401
+
+
+@records_ns.route("/create-record")
+class CreateRecord(Resource):
+    @api.expect(record_model)
+    @api.response(201, "Record creado exitosamente", record_uuid_response)
+    @api.response(400, "Error en los datos", error_response)
+    @api.response(403, "ID de usuario no coincide", error_response)
+    @api.response(401, "No autorizado", error_response)
+    @api.doc(security="cookieAuth")
+    def post(self):
+        """Crear un nuevo record con todos los datos del cliente"""
+        from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+        from services.record_service import create_record
+        from flask import request
+
+        try:
+            verify_jwt_in_request()
+            current_user_uuid = get_jwt_identity()
+            
+            data = request.get_json()
+            
+            if not data:
+                return {"error": "No data provided"}, 400
+            
+            required_fields = ['time', 'level', 'difficulty', 'errorCount', 'idUser']
+            for field in required_fields:
+                if field not in data:
+                    return {"error": f"Missing required field: {field}"}, 400
+            
+            if data['idUser'] != current_user_uuid:
+                return {"error": "User ID mismatch"}, 403
+            
+            valid_difficulties = ['easy', 'medium', 'hard']
+            if data['difficulty'] not in valid_difficulties:
+                return {"error": f"Invalid difficulty. Must be one of: {', '.join(valid_difficulties)}"}, 400
+            
+            try:
+                data['time'] = int(data['time'])
+                data['level'] = int(data['level'])
+                data['errorCount'] = int(data['errorCount'])
+            except (ValueError, TypeError):
+                return {"error": "time, level, and errorCount must be valid integers"}, 400
+            
+            if data['time'] < 0 or data['level'] < 1 or data['errorCount'] < 0:
+                return {"error": "time and errorCount must be >= 0, level must be >= 1"}, 400
+            
+            new_record = create_record(data)
+            
+            return {"message": "Record saved successfully"}, 201
+            
+        except ValueError as e:
+            return {"error": str(e)}, 400
+        except Exception as e:
+            return {"error": "Authentication required"}, 401
+
+
+@records_ns.route("/ranking/<string:difficulty>/<int:level>/<string:user_id>")
+class LevelRanking(Resource):
+    @api.response(200, "Ranking del nivel", ranking_response)
+    @api.response(400, "Parámetros inválidos", error_response)
+    @api.response(404, "No hay datos para este nivel", error_response)
+    @api.response(401, "No autorizado", error_response)
+    @api.doc(
+        security="cookieAuth",
+        params={
+            "difficulty": {
+                "description": "Dificultad del nivel",
+                "enum": ["easy", "medium", "hard"],
+                "required": True,
+                "type": "string"
+            },
+            "level": {
+                "description": "Número del nivel",
+                "required": True,
+                "type": "integer",
+                "minimum": 1
+            },
+            "user_id": {
+                "description": "UUID del usuario para mostrar su posición",
+                "required": True,
+                "type": "string"
+            }
+        }
+    )
+    def get(self, difficulty, level, user_id):
+        """Obtener ranking de un nivel específico - Top 5 + posición del usuario especificado"""
+        from flask_jwt_extended import verify_jwt_in_request
+        from services.record_service import get_ranking_by_level
+
+        try:
+            verify_jwt_in_request()
+            
+            valid_difficulties = ['easy', 'medium', 'hard']
+            if difficulty not in valid_difficulties:
+                return {"error": f"Invalid difficulty. Must be one of: {', '.join(valid_difficulties)}"}, 400
+            
+            if level < 1:
+                return {"error": "Level must be >= 1"}, 400
+            
+            ranking = get_ranking_by_level(difficulty, level, user_id)
+            
+            if not ranking:
+                return {"error": "No ranking data available for this level"}, 404
+            
+            if ranking['totalPlayers'] == 0:
+                return {
+                    "level": level,
+                    "difficulty": difficulty,
+                    "top5": [],
+                    "currentUser": None,
+                    "totalPlayers": 0,
+                    "message": "No players have completed this level yet"
+                }, 200
+            
+            return ranking, 200
+            
+        except Exception as e:
+            return {"error": "Authentication required"}, 401
+            if difficulty not in valid_difficulties:
+                return {"error": f"Invalid difficulty. Must be one of: {', '.join(valid_difficulties)}"}, 400
+            
+            if level < 1:
+                return {"error": "Level must be >= 1"}, 400
+            
+            ranking = get_ranking_by_level(difficulty, level, current_user_uuid)
+            
+            if not ranking:
+                return {"error": "No ranking data available for this level"}, 404
+            
+            if ranking['totalPlayers'] == 0:
+                return {
+                    "level": level,
+                    "difficulty": difficulty,
+                    "top5": [],
+                    "currentUser": None,
+                    "totalPlayers": 0,
+                    "message": "No players have completed this level yet"
+                }, 200
+            
+            return ranking, 200
+            
+        except Exception as e:
+            return {"error": "Authentication required"}, 401
 
 
 # Configurar autenticación por cookies en Swagger

@@ -1,66 +1,87 @@
 import os
 import re
 from typing import Any, Dict, List, Tuple
-from mysql.connector import Error as MySQLError
-from db_game import get_config
-
-ONLY_READ = str(os.getenv("ONLY_READ_QUERIES", "true")).lower() in {"1","true","yes","on"}
-
-WRITE_PATTERNS = re.compile(
-    r"^\s*(INSERT|UPDATE|DELETE|REPLACE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|RENAME|CALL|MERGE|LOCK|UNLOCK)\b",
-    re.IGNORECASE
-)
-
-def _statement_type(sql: str) -> str:
-    first = re.findall(r"^\s*([a-zA-Z]+)", sql or "")
-    return (first[0].upper() if first else "UNKNOWN")
-
-def execute_sql(sql: str) -> Tuple[int, Dict[str, Any]]:
+from db import db
+from sqlalchemy import text
 
 
-    if not sql or not sql.strip():
-        return 400, {"ok": False, "error": "Query vacía"}
+def execute_sql(lstr: str, decimal: float):
 
-    stmt_type = _statement_type(sql)
+    if(decimal in [1.1, 1.2, 1.3, 2.1]):
+        return evaluate_stringQ(lstr);
+    else:
+        return validate_sql_query(lstr, decimal);
 
+def evaluate_stringQ(lstr: str):
+    #hay tres casos ['^create database (.*);', '{^show tables from (.*);', '^use (.*);']
+    patterns = [r'^create database (.*);', r'^show tables from (.*);', r'^use (.*);']
+    lstr = lstr.lower()
 
-    if ONLY_READ and WRITE_PATTERNS.match(sql):
-        return 403, {
-            "ok": False,
-            "error": "Solo se permiten consultas SELECT en este entorno",
-            "statement_type": stmt_type
+    if(re.fullmatch(patterns[0], lstr)):#create database (.*);
+        return {
+            "msg": "success",
+            "code": 200
+        }
+    elif(re.fullmatch(patterns[1], lstr)):#show tables from (.*);
+        return {
+            "msg": "success",
+            "code": 200
+        }
+    elif(re.fullmatch(patterns[2], lstr)):#use (.*);
+        return {
+            "msg": "success",
+            "code": 200
+        }
+    else:#ninguna de las anteriores
+        return {
+            "msg": "error",
+            "code": 400
         }
 
+def validate_sql_query(sql_query: str, decimal: float):
     try:
-        conn = get_config()
-        cur = conn.cursor(dictionary=True)
-        cur.execute(sql)
-
-        if cur.with_rows:
-            rows: List[Dict[str, Any]] = cur.fetchall()
-            columns = [d[0] for d in (cur.column_names or [])] if hasattr(cur, "column_names") else list(rows[0].keys()) if rows else []
-            conn.commit()
-            cur.close()
-            conn.close()
-            return 200, {
-                "ok": True,
-                "statement_type": stmt_type,
-                "count": len(rows),
-                "columns": columns,
-                "rows": rows
-            }
+        # Obtener el engine de MySQL y ejecutar la consulta
+        mysql_engine = db.get_engine(bind='mysql')
+        with mysql_engine.connect() as connection:
+            res = connection.execute(text(sql_query))
+            rows = res.fetchall()
+            row_count = len(rows)
+        
+        if(decimal in [3.2, 3.3, 3.4]):
+            if(row_count == 1):
+                return {
+                    "msg": "success",
+                    "code": 200
+                }
+            else:
+                return {
+                    "msg": "error",
+                    "code": 400
+                }
+        elif(decimal == 4.2):
+            if(row_count == 2):
+                return {
+                    "msg": "success",
+                    "code": 200
+                }
+            else:
+                return {
+                    "msg": "error",
+                    "code": 400
+                }
         else:
-            affected = cur.rowcount
-            conn.commit()
-            cur.close()
-            conn.close()
-            return 200, {
-                "ok": True,
-                "statement_type": stmt_type,
-                "affected_rows": affected
-            }
-
-    except MySQLError as e:
-        return 400, {"ok": False, "error": str(e), "statement_type": stmt_type}
+            if(row_count > 0):
+                return {
+                    "msg": "success",
+                    "code": 200
+                }
+            else:
+                return {
+                    "msg": "error",
+                    "code": 400
+                }
     except Exception as e:
-        return 500, {"ok": False, "error": f"Unexpected error: {e}", "statement_type": stmt_type}
+        return {
+            "msg": f"SQL Error: {str(e)}",
+            "code": 400
+        }
