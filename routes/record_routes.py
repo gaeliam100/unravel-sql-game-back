@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from services.record_service import create_record, get_ranking_by_level
+from services.record_service import create_record, get_ranking_by_level, get_global_ranking
 
 record_bp = Blueprint('record', __name__)
 
@@ -118,5 +118,19 @@ def get_level_ranking(difficulty, level, user_id):
         
         return jsonify(ranking), 200
         
+    except Exception as e:
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+    
+@record_bp.route('/global-ranking', methods=['GET'])
+def global_ranking():
+    """
+    Top 3 global del juego (mejores métricas en los 4 niveles como unidad).
+    Usa la función SQL public.global_top3().
+    """
+    try:
+        data = get_global_ranking()
+        return jsonify(data), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
