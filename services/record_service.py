@@ -1,7 +1,7 @@
 from models.record import Record
 from models.user import User
 from db import db
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc,text
 
 def create_record(data):
     
@@ -115,3 +115,35 @@ def get_ranking_by_level(difficulty, level, current_user_uuid):
     except Exception as e:
         print(f"Error al obtener ranking: {str(e)}")
         return None
+    
+def get_global_ranking():
+    """
+    Top 3 global (jugadores con mejores métricas en los 4 niveles como unidad).
+    Usa la función SQL public.global_top3() que devuelve:
+    rk, username, idUser, total_errors, total_time, desglose(jsonb)
+    """
+    try:
+        result = db.session.execute(
+            text("SELECT * FROM public.global_top3()")
+        ).mappings().all()  
+
+        top = []
+        for row in result:
+            top.append({
+                "rank": row["rk"],
+                "username": row["username"],
+                "userId": str(row["idUser"]),
+                "totalErrors": row["total_errors"],
+                "totalTime": row["total_time"],
+                "breakdown": row["desglose"],
+            })
+
+        return {
+            "top": top,
+            "count": len(top)
+        }
+
+    except Exception as e:
+        db.session.rollback()
+        raise ValueError(f"Error al obtener ranking global: {str(e)}")
+    
