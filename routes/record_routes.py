@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from services.record_service import create_record, get_ranking_by_level, get_global_ranking
+from services.record_service import create_record, get_ranking_by_level, get_global_ranking_by_difficulty
 
 record_bp = Blueprint('record', __name__)
 
@@ -124,13 +124,55 @@ def get_level_ranking(difficulty, level, user_id):
 @record_bp.route('/global-ranking', methods=['GET'])
 def global_ranking():
     """
-    Top 3 global del juego (mejores métricas en los 4 niveles como unidad).
-    Usa la función SQL public.global_top3().
+    Top global por dificultad (Top 3 + fila del usuario aunque no esté en top).
+    Formato similar al ranking por nivel:
+    {
+      "currentUser": { "errorCount", "isCurrentUser", "position", "time", "username" } | null,
+      "difficulty": "easy|medium|hard",
+      "level": null,            # no aplica en global (se deja null para mantener formato)
+      "top5": [ { ... } ],      # contendrá Top 3
+      "totalPlayers": <int>     # jugadores que completaron los 4 niveles en esa dificultad
+    }
     """
     try:
-        data = get_global_ranking()
-        return jsonify(data), 200
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        difficulty = request.args.get('difficulty', type=str)
+        user_id    = request.args.get('userId', type=str)
+
+        if difficulty not in {'easy', 'medium', 'hard'}:
+            return jsonify({"error": "Invalid or missing 'difficulty' (easy|medium|hard)"}), 400
+        if not user_id:
+            return jsonify({"error": "Missing 'userId' query param"}), 400
+
+        data = get_global_ranking_by_difficulty(difficulty, user_id)
+
+
+        top_formatted = []
+        for item in data.get("top3", []):
+            top_formatted.append({
+                "username": item["username"],
+                "time": item["totalTime"],               
+                "errorCount": item["totalErrors"],       
+                "position": item["rank"],               
+                "isCurrentUser": bool(item["isCurrentUser"])
+            })
+
+        me = data.get("currentUser")
+        current_user_formatted = None
+        if me:
+            current_user_formatted = {
+                "username": me["username"],
+                "time": me["totalTime"],
+                "errorCount": me["totalErrors"],
+                "position": me["rank"],
+                "isCurrentUser": True
+            }
+        
+        return jsonify({
+            "currentUser": current_user_formatted,
+            "difficulty": difficulty,
+            "level": None,          
+            "top3": top_formatted,   
+        }), 200
+
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
