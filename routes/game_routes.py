@@ -1,7 +1,13 @@
 from flask import Blueprint, request, jsonify
 from services.game_service import execute_sql
+from services.game_service import test_mysql_connection
 
 game_bp = Blueprint("game", __name__)
+
+@game_bp.route("/test-mysql-connection", methods=["GET"])
+def test_mysql_conn():
+    result = test_mysql_connection()
+    return jsonify(result), result.get('code', 200)
 
 @game_bp.route("/validate-str", methods=["POST"])
 def validate_str():
