@@ -3,6 +3,21 @@ import re
 from typing import Any, Dict, List, Tuple
 from db import db
 from sqlalchemy import text
+from db import get_mysql_connection as mysql_conn
+
+def test_mysql_connection():
+    try:
+        conn = mysql_conn()
+        conn.close()
+        return {
+            "msg": "MySQL connection successful",
+            "code": 200
+        }
+    except Exception as e:
+        return {
+            "msg": f"MySQL connection failed: {str(e)}",
+            "code": 500
+        }
 
 
 def execute_sql(lstr: str, decimal: float):
